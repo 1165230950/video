@@ -156,51 +156,6 @@ unsigned char *mapp_buffer(struct VideoBuffer *p)
     return sp;
 }
 
-int yuyv_to_rgb(unsigned char *yuv_buffer_pointer, unsigned char *rgb_buffer)
-{
-    unsigned long in, out = 0;
-    int y0, u, y1, v;
-    int r, g, b;
-    for(in=0; in<VIDEO_WIDTH * VIDEO_HEIGHT * 2; in++)
-    {
-        y0	= yuv_buffer_pointer[in + 0];
-        u	= yuv_buffer_pointer[in + 1];
-        y1	= yuv_buffer_pointer[in + 2];
-        v	= yuv_buffer_pointer[in + 3];
-
-        r	= y0 + (1.370705 * (v-128));
-        g	= y0 - (0.698001 * (v-128))-(0.337633 * (u-128));
-        b	= y0 + (1.732446 * (u-128));
-
-        if(r>255) r = 255;
-        if(g>255) g = 255;
-        if(b>255) b = 255;
-        if(r<0) r = 0;
-        if(g<0) g = 0;
-        if(b<0) b = 0;
-        rgb_buffer[out ++] = r;
-        rgb_buffer[out ++] = g;
-        rgb_buffer[out ++] = b;
-
-        r = y1+(1.370705 * (v-128));
-        g = y1-(0.698001 * (v-128))-(0.337633 * (u-128));
-        b = y1+(1.732446 * (u-128));
-
-        if(r>255) r = 255;
-        if(g>255) g = 255;
-        if(b>255) b = 255;
-
-        if(r<0) r = 0;
-        if(g<0) g = 0;
-        if(b<0) b = 0;
-
-        rgb_buffer[out ++] = r;
-        rgb_buffer[out ++] = g;
-        rgb_buffer[out ++] = b;
-    }
-    return 0;
-}
-
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -236,6 +191,16 @@ MainWindow::MainWindow(QWidget *parent) :
     }
         printf("Frame buffer %d: address=0x%x, length=%d\n", 0, (unsigned long int)framebuf.start, (int)framebuf.length);
 
+        /*--------------------------开始录制--------------------------*/
+            printf("----------- get the info of V4L2 buffer -------------\n");
+
+            enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+            int ret = ioctl(framebuf.dev, VIDIOC_STREAMON, &type); //开始视频采集
+            if (ret < 0) {
+                printf("VIDIOC_STREAMON failed (%d)\n", ret);
+                exit(0);
+            }
+
    time = new QTimer(this);
 
     connect(time, SIGNAL(timeout()), this, SLOT(timer_update()));
@@ -264,9 +229,11 @@ void MainWindow::timer_update()
         printf("VIDIOC_QBUF failed (%d)\n", ret);
         exit(0);
     }
-    yuyv_to_rgb(buffer, rgb_buffer);
+    FILE *fp = fopen("/home/hdj/tupian_hdj", "w+");
+    fwrite(buffer, buf_size, 1, fp);
+    fclose(fp);
 
-    QImage frame = QImage(rgb_buffer, 640, 480, QImage::Format_RGB888);
+    QImage frame = QImage("/home/hdj/tupian_hdj");
     ui->label->setPixmap(QPixmap::fromImage(frame));
     ui->label->resize(frame.size());
     ui->label->show();
@@ -274,26 +241,12 @@ void MainWindow::timer_update()
 
 void MainWindow::on_pushButton_clicked()
 {
-    /*--------------------------开始录制--------------------------*/
-        printf("----------- get the info of V4L2 buffer -------------\n");
-
-        enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-        int ret = ioctl(framebuf.dev, VIDIOC_STREAMON, &type); //开始视频采集
-        if (ret < 0) {
-            printf("VIDIOC_STREAMON failed (%d)\n", ret);
-            exit(0);
-        }
-
+    ui->pushButton->setText("正在录制");
         time->start(33);
 }
 
 void MainWindow::on_pushButton_2_clicked()
 {
+    ui->pushButton->setText("开始");
     time->stop();
-
-    munmap(framebuf.start,framebuf.length);
-
-    ::close(framebuf.dev);
-
-     printf("Camera test Done.\n");
 }

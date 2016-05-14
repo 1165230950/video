@@ -18,7 +18,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 
-#define CAMERA_DEVICE "/dev/video3"
+#define CAMERA_DEVICE "/dev/video0"
 #define VIDEO_WIDTH 640
 #define VIDEO_HEIGHT 480
 #define VIDEO_FORMAT V4L2_PIX_FMT_YUYV
